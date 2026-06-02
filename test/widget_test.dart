@@ -1,30 +1,50 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:buiminhtrong_6451071081_lab3/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setupSqfliteMock();
+
+  testWidgets('Profile screen smoke test', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
+    // Wait for the loading to finish and frames to render
+    await tester.pumpAndSettle();
+    
+    // Verify that Profile title exists
+    expect(find.text('Profile'), findsOneWidget);
+    // Verify that the user's name is rendered
+    expect(find.text('Bùi Minh Trọng'), findsOneWidget);
+  });
+}
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+void setupSqfliteMock() {
+  const channel = MethodChannel('com.tekartik.sqflite');
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(channel, (methodCall) async {
+    if (methodCall.method == 'getDatabasesPath') {
+      return '.';
+    }
+    if (methodCall.method == 'openDatabase') {
+      return 1; // Database ID
+    }
+    if (methodCall.method == 'query') {
+      final arguments = methodCall.arguments as Map?;
+      final sql = arguments?['sql'] as String?;
+      if (sql != null && sql.contains('profile')) {
+        return [
+          {
+            'id': 1,
+            'name': 'Bùi Minh Trọng',
+            'email': '6451071081@st.utc2.edu.vn',
+            'about_me': 'Lorem ipsum dolor sit amet.'
+          }
+        ];
+      }
+      return [];
+    }
+    return null;
   });
 }

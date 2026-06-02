@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:file_picker/file_picker.dart';
 
+import '../database/database_helper.dart';
 import '../widgets/profile_card.dart';
 import '../widgets/dialogs/about_me_dialog.dart';
 import '../widgets/dialogs/work_exp_dialog.dart';
@@ -18,6 +19,10 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  bool _isLoading = true;
+  String _name = 'Bùi Minh Trọng';
+  String _email = '6451071081@st.utc2.edu.vn';
+
   String aboutMeText =
       'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lectus id commodo egestas metus interdum dolor.';
 
@@ -256,12 +261,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadProfileData();
+  }
+
+  Future<void> _loadProfileData() async {
+    try {
+      final dbHelper = DatabaseHelper.instance;
+      final profile = await dbHelper.getProfile();
+      final dbWorkExperiences = await dbHelper.getWorkExperiences();
+      final dbEducations = await dbHelper.getEducations();
+      final dbSkills = await dbHelper.getSkills();
+      final dbLanguages = await dbHelper.getLanguages();
+      final dbAppreciations = await dbHelper.getAppreciations();
+      final dbResumes = await dbHelper.getResumes();
+
+      setState(() {
+        _name = profile['name'] ?? 'Bùi Minh Trọng';
+        _email = profile['email'] ?? '6451071081@st.utc2.edu.vn';
+        aboutMeText = profile['about_me'] ?? '';
+        workExperiences = dbWorkExperiences;
+        educations = dbEducations;
+        skills = dbSkills;
+        languages = dbLanguages;
+        appreciations = dbAppreciations;
+        resumes = dbResumes;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFE5E5E5),
       body: SafeArea(
-        child: Column(
-          children: [
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFF130160),
+                ),
+              )
+            : Column(
+                children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
               child: Row(
@@ -326,9 +373,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          const Text(
-                            'Bùi Minh Trọng',
-                            style: TextStyle(
+                          Text(
+                            _name,
+                            style: const TextStyle(
                               color: Color(0xFF130160),
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -336,7 +383,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '6451071081@st.utc2.edu.vn',
+                            _email,
                             style: TextStyle(
                               color: const Color(0xFF130160).withAlpha((0.6 * 255).round()),
                               fontSize: 13,
@@ -920,14 +967,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     elevation: 0,
                   ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Profile updated successfully!'),
-                        backgroundColor: Color(0xFFFF9228),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
+                  onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    setState(() {
+                      _isLoading = true;
+                    });
+                    try {
+                      await DatabaseHelper.instance.saveAllProfileData(
+                        name: _name,
+                        email: _email,
+                        aboutMe: aboutMeText,
+                        workExperiences: workExperiences,
+                        educations: educations,
+                        skills: skills,
+                        languages: languages,
+                        appreciations: appreciations,
+                        resumes: resumes,
+                      );
+                      if (mounted) {
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Profile updated successfully!'),
+                            backgroundColor: Color(0xFFFF9228),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to update profile: $e'),
+                            backgroundColor: Colors.red,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    } finally {
+                      if (mounted) {
+                        setState(() {
+                          _isLoading = false;
+                        });
+                      }
+                    }
                   },
                   child: const Text(
                     'UPDATE',
